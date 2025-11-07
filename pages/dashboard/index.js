@@ -27,7 +27,7 @@ import {
 
 const menuItems = [
   {
-    title: 'Home',
+    title: 'Principal',
     icon: FiHome,
     url: '/dashboard',
   },
@@ -55,6 +55,7 @@ const menuItems = [
 
 function AppSidebar() {
   const router = useRouter();
+  const [activeItem, setActiveItem] = useState('Principal');
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
@@ -62,49 +63,77 @@ function AppSidebar() {
     router.push('/');
   };
 
+  const handleNavigation = (item) => {
+    setActiveItem(item.title);
+    router.push(item.url);
+  };
+
   return (
-    <Sidebar className="border-r border-[#0a6448]/20">
-      <SidebarHeader className="border-b border-[#0a6448]/20 bg-gradient-to-br from-[#0a6448] to-[#0f2755] p-4">
+    <Sidebar className="border-none bg-white">
+      <SidebarHeader className="h-20 border-b border-gray-200 px-6 bg-gradient-to-br from-[#0a6448] to-[#0f2755]">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-            <FiUser className="w-5 h-5 text-white" />
+          <div className="relative">
+            <div className="w-11 h-11 rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center shadow-lg">
+              <FiUser className="w-5 h-5 text-[#0a6448]" />
+            </div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-400 rounded-full border-2 border-white shadow-sm"></div>
           </div>
           <div className="flex-1 group-data-[collapsible=icon]:hidden">
-            <p className="text-sm font-semibold text-white">Usuario</p>
-            <p className="text-xs text-white/80">Estudiante UTC</p>
+            <p className="text-sm font-semibold text-white drop-shadow-sm">Usuario</p>
+            <p className="text-xs text-white/90">Estudiante UTC</p>
           </div>
         </div>
       </SidebarHeader>
       
-      <SidebarContent className="bg-white">
+      <SidebarContent className="px-4 py-6 bg-white">
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    onClick={() => router.push(item.url)}
-                    className="hover:bg-[#0a6448]/10 hover:text-[#0a6448] data-[active=true]:bg-[#0a6448] data-[active=true]:text-white transition-colors"
-                  >
-                    <item.icon className="w-5 h-5" />
-                    <span className="font-medium">{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+            <SidebarMenu className="space-y-2">
+              {menuItems.map((item) => {
+                const isActive = activeItem === item.title;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      onClick={() => handleNavigation(item)}
+                      isActive={isActive}
+                      tooltip={item.title}
+                      className={`
+                        group relative rounded-xl px-4 py-3 transition-all duration-200 font-medium
+                        ${isActive 
+                          ? 'bg-gradient-to-r from-[#0a6448] to-[#0f2755] shadow-lg shadow-[#0a6448]/25' 
+                          : 'text-gray-700 hover:bg-gray-50 hover:text-[#0a6448]'
+                        }
+                      `}
+                      style={isActive ? { color: '#ffffff' } : undefined}
+                    >
+                      <item.icon 
+                        className={`w-5 h-5 transition-transform duration-200 ${!isActive && 'group-hover:scale-110'}`}
+                        style={isActive ? { color: '#ffffff' } : undefined}
+                      />
+                      <span className="text-sm" style={isActive ? { color: '#ffffff' } : undefined}>
+                        {item.title}
+                      </span>
+                      {isActive && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full shadow-sm"></div>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
       
-      <SidebarFooter className="border-t border-[#0a6448]/20 bg-white p-2">
+      <SidebarFooter className="border-t border-gray-200 p-4 bg-white">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={handleLogout}
-              className="hover:bg-red-50 hover:text-red-600 transition-colors"
+              className="group rounded-xl px-4 py-3 transition-all duration-200 text-gray-700 hover:bg-red-50 hover:text-red-600 font-medium"
             >
-              <FiLogOut className="w-5 h-5" />
-              <span className="font-medium">Cerrar Sesión</span>
+              <FiLogOut className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />
+              <span className="text-sm">Cerrar Sesión</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
