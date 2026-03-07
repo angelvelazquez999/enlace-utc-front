@@ -112,7 +112,7 @@ export default function DashboardSidebar({ currentPath }) {
 
   return (
     <Sidebar className="border-none bg-white">
-      <SidebarHeader className="h-20 border-b border-gray-200 px-6 bg-gradient-to-br from-[#0a6448] to-[#0f2755]">
+      <SidebarHeader className="border-b border-gray-200 px-6 bg-gradient-to-br from-[#0a6448] to-[#0f2755]">
         <div className="flex items-center gap-3">
           <div className="relative">
             <div className="w-11 h-11 rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center shadow-lg">
