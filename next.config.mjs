@@ -5,10 +5,8 @@ const nextConfig = {
   reactStrictMode: true,
   pageExtensions: ['js', 'jsx', 'ts', 'tsx'],
   // Excluir el directorio components dentro de pages del build
-  experimental: {
-    outputFileTracingExcludes: {
-      '*': ['pages/components/**/*']
-    }
+  outputFileTracingExcludes: {
+    '*': ['pages/components/**/*']
   }
 };
 
