@@ -1,7 +1,7 @@
 {
   "name": "Enlace UTC",
   "short_name": "EnlaceUTC",
-  "description": "Plataforma Enlace UTC",
+  "description": "Plataforma Enlace UTC - Sistema de simulación de entrevistas laborales con inteligencia artificial",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -9,6 +9,15 @@
   "background_color": "#0b1020",
   "theme_color": "#0b1020",
   "lang": "es-MX",
+  "categories": ["productivity", "business"],
+  "screenshots": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
   "icons": [
     {
       "src": "/icons/icon-192x192.png",

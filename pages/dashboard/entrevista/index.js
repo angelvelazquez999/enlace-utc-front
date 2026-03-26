@@ -11,10 +11,12 @@ import DashboardLayout from '@/components/DashboardLayout';
 
 export default function Home() {
     const audioRef = useRef(null);
+    const micStreamRef = useRef(null);
     const [audioAnalyzer, setAudioAnalyzer] = useState(null);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [isListening, setIsListening] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [micPermission, setMicPermission] = useState("unknown");
     const [transcript, setTranscript] = useState("");
     const [aiResponse, setAiResponse] = useState("");
     const [conversationHistory, setConversationHistory] = useState([]);
@@ -25,23 +27,6 @@ export default function Home() {
     const recognitionRef = useRef(null);
 
     useEffect(() => {
-        // Inicializar analizador de audio del micrófono
-        async function initMic() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const ctx = new AudioContext();
-                const source = ctx.createMediaStreamSource(stream);
-                const analyser = ctx.createAnalyser();
-                analyser.fftSize = 512;
-                source.connect(analyser);
-                setAudioAnalyzer(analyser);
-            } catch (err) {
-                console.error("Error al inicializar micrófono:", err);
-                setError("No se pudo acceder al micrófono");
-            }
-        }
-        initMic();
-
         // Cargar voces del navegador para TTS
         if ('speechSynthesis' in window) {
             window.speechSynthesis.getVoices();
@@ -58,7 +43,65 @@ export default function Home() {
             recognitionRef.current.interimResults = false;
             recognitionRef.current.lang = 'es-ES';
         }
+
+        if (navigator.permissions?.query) {
+            navigator.permissions
+                .query({ name: "microphone" })
+                .then((result) => {
+                    setMicPermission(result.state);
+                })
+                .catch(() => {
+                    setMicPermission("unknown");
+                });
+        }
+
+        return () => {
+            if (micStreamRef.current) {
+                micStreamRef.current.getTracks().forEach((track) => track.stop());
+                micStreamRef.current = null;
+            }
+        };
     }, []);
+
+    const requestMicrophonePermission = async () => {
+        if (!navigator.mediaDevices?.getUserMedia) {
+            setError("Tu navegador no soporta acceso al micrófono");
+            setMicPermission("denied");
+            return false;
+        }
+
+        try {
+            if (!micStreamRef.current) {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                micStreamRef.current = stream;
+
+                const ctx = new AudioContext();
+                const source = ctx.createMediaStreamSource(stream);
+                const analyser = ctx.createAnalyser();
+                analyser.fftSize = 512;
+                source.connect(analyser);
+                setAudioAnalyzer(analyser);
+            }
+
+            setMicPermission("granted");
+            return true;
+        } catch (err) {
+            console.error("Error de permiso de micrófono:", err);
+
+            if (err.name === "NotAllowedError") {
+                setMicPermission("denied");
+                setError("Permiso de micrófono bloqueado. Actívalo en la configuración del navegador para este sitio.");
+            } else if (err.name === "NotFoundError") {
+                setMicPermission("denied");
+                setError("No se detectó un micrófono disponible en este dispositivo.");
+            } else {
+                setMicPermission("denied");
+                setError("No se pudo acceder al micrófono: " + err.message);
+            }
+
+            return false;
+        }
+    };
 
     // Función para grabar audio
     const startRecording = async () => {
@@ -67,6 +110,12 @@ export default function Home() {
             setIsListening(true);
             setTranscript("");
             audioChunksRef.current = [];
+
+            const hasMicPermission = await requestMicrophonePermission();
+            if (!hasMicPermission) {
+                setIsListening(false);
+                return;
+            }
 
             // Opción 1: Usar Web Speech API del navegador (más simple)
             if (recognitionRef.current) {
@@ -305,6 +354,8 @@ export default function Home() {
                         {isListening && <div style={{ color: '#ef4444' }}>🔴 Escuchando...</div>}
                         {isProcessing && <div style={{ color: '#f59e0b' }}>⚙️ Procesando...</div>}
                         {isSpeaking && <div style={{ color: '#0a6448' }}>🗣️ Hablando...</div>}
+                        {micPermission === 'granted' && <div style={{ color: '#0a6448' }}>🎤 Micrófono habilitado</div>}
+                        {micPermission === 'denied' && <div style={{ color: '#dc2626' }}>🚫 Micrófono bloqueado</div>}
                     </div>
 
                     {/* Transcript */}
