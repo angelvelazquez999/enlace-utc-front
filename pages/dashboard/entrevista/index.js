@@ -200,7 +200,7 @@ export default function Home() {
         try {
             setError("");
 
-            // Intentar usar API de TTS (ElevenLabs si está configurada)
+            // Llamar al endpoint TTS
             const resp = await fetch("/api/tts", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -212,11 +212,12 @@ export default function Home() {
             }
 
             const contentType = resp.headers.get("content-type");
+            console.log("TTS Response Content-Type:", contentType);
 
+            // Si es JSON, usar Web Speech API del navegador (fallback)
             if (contentType && contentType.includes("application/json")) {
-                // Usar Web Speech API del navegador
                 const data = await resp.json();
-                console.log("Usando Web Speech API del navegador");
+                console.log("Using browser Web Speech API");
 
                 const utterance = new SpeechSynthesisUtterance(data.text);
                 utterance.lang = 'es-ES';
@@ -224,7 +225,6 @@ export default function Home() {
                 utterance.pitch = 1.1;
                 utterance.volume = 1.0;
 
-                // Buscar voz femenina en español
                 const voices = window.speechSynthesis.getVoices();
                 const spanishFemaleVoice = voices.find(voice =>
                     voice.lang.startsWith('es') &&
@@ -250,26 +250,61 @@ export default function Home() {
                 return;
             }
 
-            // Si es audio binario de ElevenLabs
+            // Si es audio binario (Murf, ElevenLabs, etc)
+            console.log("Using binary audio from TTS API");
             const arrayBuffer = await resp.arrayBuffer();
+            console.log("Audio buffer size:", arrayBuffer.byteLength, "bytes");
+            console.log("Content-Type header:", contentType);
+            
+            // Validar que no esté vacío
+            if (arrayBuffer.byteLength === 0) {
+                console.error("❌ Audio buffer vacío - Murf probablemente retornó error");
+                setError("El servidor TTS retornó audio vacío");
+                setIsSpeaking(false);
+                return;
+            }
+            
             const blob = new Blob([arrayBuffer], { type: contentType || "audio/mpeg" });
             const url = URL.createObjectURL(blob);
+            console.log("Audio blob URL created:", url);
             const audio = new Audio(url);
             audioRef.current = audio;
 
-            const ctx = new AudioContext();
-            const source = ctx.createMediaElementSource(audio);
-            const analyser = ctx.createAnalyser();
-            analyser.fftSize = 512;
-            source.connect(analyser);
-            analyser.connect(ctx.destination);
-            setAudioAnalyzer(analyser);
+            // Listener para errores
+            audio.addEventListener('error', (e) => {
+                console.error("Audio error event:", e);
+                const errorMsg = audio.error ? `Code ${audio.error.code}: ${audio.error.message}` : "Unknown error";
+                console.error("Audio error details:", errorMsg);
+                setError(`Error al reproducir audio: ${errorMsg}`);
+                setIsSpeaking(false);
+            });
 
-            audio.onplay = () => setIsSpeaking(true);
-            audio.onended = () => setIsSpeaking(false);
-            audio.onerror = () => setIsSpeaking(false);
+            audio.addEventListener('loadstart', () => {
+                console.log("Audio: load started");
+            });
 
-            await audio.play();
+            audio.addEventListener('canplay', () => {
+                console.log("Audio: can play");
+            });
+
+            audio.onplay = () => {
+                console.log("Audio: playback started");
+                setIsSpeaking(true);
+            };
+            
+            audio.onended = () => {
+                console.log("Audio: playback ended");
+                setIsSpeaking(false);
+            };
+
+            console.log("Attempting to play audio...");
+            try {
+                await audio.play();
+            } catch (e) {
+                console.error("Play promise rejected:", e.name, e.message);
+                setError("No se pudo reproducir el audio: " + e.message);
+                setIsSpeaking(false);
+            }
 
         } catch (err) {
             console.error("Error al reproducir audio:", err);
@@ -393,14 +428,15 @@ export default function Home() {
 
                 {/* Canvas del Avatar */}
                 <Canvas 
-                    camera={{ position: [0, 0, 2], fov: 50 }} 
+                    camera={{ position: [0, 1.5, 7], fov: 15 }} 
                     style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #0a6448 0%, #0f2755 100%)' }}
                 >
-                    <ambientLight intensity={0.8} />
-                    <pointLight position={[10, 10, 10]} intensity={1} />
-                    <pointLight position={[-10, -10, -10]} intensity={0.5} />
+                    <ambientLight intensity={0.4} />
+                    <pointLight position={[5, 5, 5]} intensity={0.3} />
+                    <pointLight position={[-5, 3, -5]} intensity={0.2} />
+                    <pointLight position={[0, 8, 0]} intensity={0.2} />
                     <Avatar
-                        url="https://models.readyplayer.me/690c35d7d9d72e80a579e569.glb"
+                        url="/avatar/ana.glb"
                         audioAnalyser={audioAnalyzer}
                         isSpeaking={isSpeaking}
                     />

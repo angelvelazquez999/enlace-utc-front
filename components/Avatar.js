@@ -8,35 +8,65 @@ export default function Avatar({ url, audioAnalyser, isSpeaking }) {
   const { actions, mixer } = useAnimations(animations, scene);
   const groupRef = useRef();
   const headBoneRef = useRef();
+  const leftArmRef = useRef();
+  const rightArmRef = useRef();
+  const leftShoulderRef = useRef();
+  const rightShoulderRef = useRef();
   const blinkTimeRef = useRef(0);
   const headMovementRef = useRef({ time: 0, offsetX: 0, offsetY: 0 });
   const expressionTimerRef = useRef(0);
   const [currentExpression, setCurrentExpression] = useState('neutral');
 
-  // Expresiones faciales predefinidas
+  // Expresiones faciales predefinidas - Actualizadas con morphTargets reales del modelo
   const expressions = {
-    neutral: { mouthSmile: 0, browInnerUp: 0, eyeWideLeft: 0, eyeWideRight: 0 },
-    happy: { mouthSmile: 0.7, browInnerUp: 0.3, eyeSquintLeft: 0.2, eyeSquintRight: 0.2 },
-    excited: { mouthSmile: 0.9, browInnerUp: 0.5, eyeWideLeft: 0.4, eyeWideRight: 0.4 },
-    thinking: { mouthSmile: 0.1, browInnerUp: 0.4, eyeSquintLeft: 0.1, eyeSquintRight: 0.1 },
-    friendly: { mouthSmile: 0.5, browInnerUp: 0.2, eyeWideLeft: 0.1, eyeWideRight: 0.1 },
-    surprised: { mouthSmile: 0.2, browInnerUp: 0.8, eyeWideLeft: 0.7, eyeWideRight: 0.7, mouthOpen: 0.3 },
+    neutral: { Fcl_ALL_Neutral: 0.7, Fcl_ALL_Joy: 0, Fcl_ALL_Fun: 0 },
+    happy: { Fcl_ALL_Joy: 1, Fcl_ALL_Neutral: 0.1, Fcl_ALL_Fun: 0.3 },
+    excited: { Fcl_ALL_Joy: 0.9, Fcl_ALL_Fun: 0.8, Fcl_ALL_Neutral: 0 },
+    thinking: { Fcl_ALL_Neutral: 0.9, Fcl_ALL_Joy: 0.2, Fcl_ALL_Fun: 0.1 },
+    friendly: { Fcl_ALL_Joy: 0.8, Fcl_ALL_Fun: 0.4, Fcl_ALL_Neutral: 0.2 },
+    surprised: { Fcl_ALL_Fun: 0.9, Fcl_ALL_Joy: 0.5, Fcl_ALL_Neutral: 0 },
   };
 
   useEffect(() => {
     console.log("Available animations:", animations.map(a => a.name));
     console.log("Available actions:", Object.keys(actions));
     
-    // Buscar el hueso de la cabeza para movimiento natural
+    // Buscar huesos clave para animación
+    const allBones = [];
     scene.traverse((child) => {
-      if (child.isBone && (child.name.toLowerCase().includes('head') || child.name.toLowerCase().includes('neck'))) {
-        headBoneRef.current = child;
-        console.log("Found head bone:", child.name);
+      if (child.isBone) {
+        allBones.push(child.name);
+        
+        // Brazos - usando nombres exactos del modelo
+        if (child.name === 'J_Bip_L_UpperArm') {
+          leftArmRef.current = child;
+          console.log("✓ Found left upper arm:", child.name);
+        } else if (child.name === 'J_Bip_R_UpperArm') {
+          rightArmRef.current = child;
+          console.log("✓ Found right upper arm:", child.name);
+        } else if (child.name === 'J_Bip_L_Shoulder') {
+          leftShoulderRef.current = child;
+          console.log("✓ Found left shoulder:", child.name);
+        } else if (child.name === 'J_Bip_R_Shoulder') {
+          rightShoulderRef.current = child;
+          console.log("✓ Found right shoulder:", child.name);
+        }
+        
+        // Cabeza
+        if (child.name === 'J_Bip_C_Head') {
+          headBoneRef.current = child;
+          console.log("✓ Found head bone:", child.name);
+        }
       }
+      
       if (child.isMesh && child.morphTargetInfluences) {
         console.log("Found mesh with morphTargets:", child.name, child.morphTargetDictionary);
       }
     });
+    
+    console.log("=== ALL AVAILABLE BONES ===");
+    console.log(allBones.join(", "));
+    console.log("===========================");
   }, [scene, animations, actions]);
 
   // Función para cambiar expresiones
@@ -45,7 +75,7 @@ export default function Avatar({ url, audioAnalyser, isSpeaking }) {
     if (!expression) return;
 
     scene.traverse((child) => {
-      if (child.isMesh && child.morphTargetInfluences) {
+      if (child.isMesh && child.morphTargetInfluences && child.morphTargetDictionary) {
         const dict = child.morphTargetDictionary;
         
         Object.keys(expression).forEach(morphName => {
@@ -61,7 +91,7 @@ export default function Avatar({ url, audioAnalyser, isSpeaking }) {
     });
   };
 
-  // Animación continua (parpadeo, respiración, movimientos sutiles, expresiones)
+  // Animación continua (parpadeo, respiración, movimientos sutiles, expresiones, brazos)
   useFrame((state, delta) => {
     const time = state.clock.elapsedTime;
 
@@ -96,38 +126,97 @@ export default function Avatar({ url, audioAnalyser, isSpeaking }) {
       }
     }
 
+    // Animación de brazos cuando habla - GESTOS MUY SUTILES Y RELAJADOS, BRAZOS BAJOS
+    if (isSpeaking) {
+      // Brazo izquierdo - apenas se mueve
+      if (leftShoulderRef.current) {
+        const leftGesture = Math.sin(time * 1) * 0.08; // Muy muy sutil
+        leftShoulderRef.current.rotation.z = -0.55 + leftGesture;
+        leftShoulderRef.current.rotation.x = Math.cos(time * 0.8) * 0.05;
+      }
+      
+      if (leftArmRef.current) {
+        const leftArmGesture = Math.sin(time * 1.2 + 0.5) * 0.06;
+        leftArmRef.current.rotation.z = -0.42 + leftArmGesture;
+        leftArmRef.current.rotation.x = Math.sin(time * 0.9) * 0.08;
+      }
+      
+      // Brazo derecho - espejo del izquierdo con desfase
+      if (rightShoulderRef.current) {
+        const rightGesture = Math.sin(time * 1 + Math.PI) * 0.08; // Muy muy sutil
+        rightShoulderRef.current.rotation.z = 0.55 + rightGesture;
+        rightShoulderRef.current.rotation.x = Math.cos(time * 0.8 + 1) * 0.05;
+      }
+      
+      if (rightArmRef.current) {
+        const rightArmGesture = Math.sin(time * 1.2 + 0.5 + Math.PI) * 0.06;
+        rightArmRef.current.rotation.z = 0.42 + rightArmGesture;
+        rightArmRef.current.rotation.x = Math.sin(time * 0.9 + 1) * 0.08;
+      }
+    } else {
+      // Posición neutral de descanso cuando NO habla - BRAZOS CAÍDOS NATURALES
+      if (leftShoulderRef.current) {
+        leftShoulderRef.current.rotation.z = -0.6 + Math.cos(time * 0.3) * 0.05; // Posición natural
+        leftShoulderRef.current.rotation.x = 0;
+        leftShoulderRef.current.rotation.y = 0;
+      }
+      
+      if (leftArmRef.current) {
+        leftArmRef.current.rotation.z = -0.45; // Posición natural
+        leftArmRef.current.rotation.x = 0.1;
+        leftArmRef.current.rotation.y = 0;
+      }
+      
+      if (rightShoulderRef.current) {
+        rightShoulderRef.current.rotation.z = 0.6 + Math.cos(time * 0.3 + 0.5) * 0.05; // Posición natural
+        rightShoulderRef.current.rotation.x = 0;
+        rightShoulderRef.current.rotation.y = 0;
+      }
+      
+      if (rightArmRef.current) {
+        rightArmRef.current.rotation.z = 0.45; // Posición natural
+        rightArmRef.current.rotation.x = 0.1;
+        rightArmRef.current.rotation.y = 0;
+      }
+    }
+
     // Cambiar expresiones aleatoriamente cuando habla
     if (isSpeaking) {
       expressionTimerRef.current += delta;
       
-      if (expressionTimerRef.current > 2) { // Cada 2 segundos
-        const expressionsList = ['friendly', 'happy', 'excited', 'thinking'];
+      if (expressionTimerRef.current > 3.5) { // Cada 3.5 segundos
+        const expressionsList = ['friendly', 'happy', 'excited'];
         const randomExpression = expressionsList[Math.floor(Math.random() * expressionsList.length)];
         setCurrentExpression(randomExpression);
         expressionTimerRef.current = 0;
       }
       
-      applyExpression(currentExpression, 0.7);
+      applyExpression(currentExpression, 1); // Intensidad máxima
     } else {
-      applyExpression('neutral', 0.3);
+      applyExpression('neutral', 0.5); // Menos intenso en reposo
     }
 
-    // Parpadeo natural
+    // Parpadeo natural - SOLO EN REPOSO (NO MIENTRAS HABLA)
     blinkTimeRef.current += delta;
-    const blinkCycle = Math.sin(blinkTimeRef.current * 2.5);
-    const shouldBlink = blinkCycle > 0.95 || (Math.random() > 0.99); // Parpadeo más frecuente
+    
+    // Solo permitir parpadeo cuando NO está hablando
+    let shouldBlink = false;
+    if (!isSpeaking) {
+      const blinkCycle = Math.sin(blinkTimeRef.current * 0.25); // Parpadeo muy muy lento
+      shouldBlink = blinkCycle > 0.99 || (Math.random() > 0.9999); // Cada 5-6 segundos o menos
+    }
     
     scene.traverse((child) => {
       if (child.isMesh && child.morphTargetInfluences) {
         const dict = child.morphTargetDictionary;
         
-        // Parpadeo
+        // Parpadeo suave (solo en reposo)
         const blinkTargets = ['eyesClosed', 'eyeBlinkLeft', 'eyeBlinkRight'];
         blinkTargets.forEach(targetName => {
           if (dict && dict[targetName] !== undefined) {
-            const targetBlink = shouldBlink ? 1 : 0;
+            const targetBlink = shouldBlink ? 0.8 : 0; // Más suave
             child.morphTargetInfluences[dict[targetName]] += 
-              (targetBlink - child.morphTargetInfluences[dict[targetName]]) * 0.4;
+              (targetBlink - child.morphTargetInfluences[dict[targetName]]) * 0.2; // Interpolación más lenta
           }
         });
       }
@@ -203,34 +292,25 @@ export default function Avatar({ url, audioAnalyser, isSpeaking }) {
         if (child.isMesh && child.morphTargetInfluences) {
           const dict = child.morphTargetDictionary;
           
-          // Animación de boca más realista con múltiples ondas
-          if (dict && dict['mouthOpen'] !== undefined) {
-            // Combinar varias frecuencias para más naturalidad
-            const fast = Math.sin(time * 18 + phase) * 0.5 + 0.5; // Rápida para sílabas
-            const medium = Math.sin(time * 9) * 0.5 + 0.5; // Media para palabras
-            const slow = Math.sin(time * 4) * 0.3 + 0.4; // Lenta para ritmo general
-            const random = Math.random() * 0.15; // Variación aleatoria
-            
-            const mouthOpen = Math.min(0.85, (fast * 0.35 + medium * 0.3 + slow * 0.25 + random * 0.1));
-            
-            child.morphTargetInfluences[dict['mouthOpen']] = mouthOpen;
-            
-            // Cambiar fase cada "sílaba"
-            if (syllableTime > 0.15 && Math.random() > 0.5) {
-              phase = Math.random() * Math.PI;
-              syllableTime = 0;
-            }
+          // Animación de boca con los morphTargets reales del modelo
+          // Usar Fcl_ALL_* que son los disponibles
+          
+          // Fun = boca abierta con sonrisa
+          if (dict && dict['Fcl_ALL_Fun'] !== undefined) {
+            const funMouth = Math.sin(time * 4) * 0.4 + 0.4; // Boca abierta oscilante
+            child.morphTargetInfluences[dict['Fcl_ALL_Fun']] = Math.max(0, Math.min(1, funMouth));
           }
           
-          // Variaciones de forma de boca
-          if (dict && dict['mouthFunnel'] !== undefined) {
-            const funnel = Math.sin(time * 5) * 0.15 + 0.15;
-            child.morphTargetInfluences[dict['mouthFunnel']] = Math.max(0, funnel);
+          // Joy = sonrisa grande
+          if (dict && dict['Fcl_ALL_Joy'] !== undefined) {
+            const joySmile = Math.sin(time * 3 + 1) * 0.35 + 0.45; // Sonrisa
+            child.morphTargetInfluences[dict['Fcl_ALL_Joy']] = Math.max(0, Math.min(1, joySmile));
           }
           
-          if (dict && dict['mouthPucker'] !== undefined) {
-            const pucker = Math.sin(time * 7 + 1) * 0.1 + 0.1;
-            child.morphTargetInfluences[dict['mouthPucker']] = Math.max(0, pucker);
+          // Neutral de fondo
+          if (dict && dict['Fcl_ALL_Neutral'] !== undefined) {
+            const neutral = Math.max(0, 0.4 - Math.sin(time * 4) * 0.2);
+            child.morphTargetInfluences[dict['Fcl_ALL_Neutral']] = neutral;
           }
         }
       });
@@ -259,7 +339,7 @@ export default function Avatar({ url, audioAnalyser, isSpeaking }) {
   }, [isSpeaking, scene]);
 
   return (
-    <group ref={groupRef} position={[0, 3, -1]}>
+    <group ref={groupRef} position={[0, 8.5, -2]}>
       <primitive 
         object={scene} 
         scale={3}
